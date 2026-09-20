@@ -17,6 +17,28 @@ class ReactNativeFormData {
 }
 
 describe('helpers::resolveConfig', () => {
+  it('should wrap params serialization failures in an AxiosError carrying the config', () => {
+    const serializerError = new Error('serializer exploded');
+
+    assert.throws(
+      () =>
+        resolveConfig({
+          url: '/foo',
+          params: { a: 1 },
+          paramsSerializer: () => {
+            throw serializerError;
+          },
+        }),
+      (err) => {
+        assert.strictEqual(err.isAxiosError, true);
+        assert.strictEqual(err.code, AxiosError.ERR_BAD_REQUEST);
+        assert.strictEqual(err.config && err.config.params.a, 1);
+        assert.strictEqual(err.cause, serializerError);
+        return true;
+      }
+    );
+  });
+
   it('should ignore FormData getHeaders inherited only from Object.prototype', () => {
     if (typeof globalThis.FormData !== 'function') {
       return;

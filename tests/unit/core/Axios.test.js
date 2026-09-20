@@ -53,4 +53,59 @@ describe('core::Axios', () => {
       }
     });
   });
+
+  describe('params serialization failure envelope', () => {
+    const url = 'http://127.0.0.1:1/q';
+
+    const circularParams = () => {
+      const params = { self: null };
+      params.self = params;
+      return params;
+    };
+
+    const expectParamsFailureEnvelope = async (promise) => {
+      await expect(promise).rejects.toSatisfy((err) => {
+        expect(axios.isAxiosError(err)).toBe(true);
+        expect(err.code).toBe(axios.AxiosError.ERR_BAD_REQUEST);
+        expect(err.config).toBeTruthy();
+        return true;
+      });
+    };
+
+    for (const adapter of ['http', 'fetch']) {
+      it(`should reject circular params as an AxiosError with config [${adapter}]`, async () => {
+        await expectParamsFailureEnvelope(axios.get(url, { adapter, params: circularParams() }));
+      });
+
+      it(`should reject a throwing paramsSerializer as an AxiosError with config [${adapter}]`, async () => {
+        await expectParamsFailureEnvelope(
+          axios.get(url, {
+            adapter,
+            params: { a: 1 },
+            paramsSerializer: () => {
+              throw new Error('serializer exploded');
+            },
+          })
+        );
+      });
+
+      it(`should reject circular params from axios.request [${adapter}]`, async () => {
+        await expectParamsFailureEnvelope(
+          axios.request({ method: 'get', url, adapter, params: circularParams() })
+        );
+      });
+
+      it(`should reject circular params from axios(url, config) [${adapter}]`, async () => {
+        await expectParamsFailureEnvelope(axios(url, { adapter, params: circularParams() }));
+      });
+    }
+
+    it('should expose the original config on the error', async () => {
+      const params = circularParams();
+
+      await expect(axios(url, { adapter: 'http', params })).rejects.toSatisfy(
+        (err) => err.config && err.config.params === params
+      );
+    });
+  });
 });
