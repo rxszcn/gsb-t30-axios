@@ -168,4 +168,23 @@ describe('utils::merge', () => {
 
     expect(merged[key]).toBe('first');
   });
+
+  it('should not overflow the stack on circular structures', () => {
+    const a = { foo: 123 };
+    a.self = a;
+
+    const merged = merge({}, a);
+
+    expect(merged.foo).toEqual(123);
+    expect(merged.self).toBe(a);
+  });
+
+  it('should still copy shared non-circular objects independently', () => {
+    const shared = { bar: 123 };
+    const merged = merge({}, { a: shared, b: shared });
+
+    expect(merged.a).toEqual({ bar: 123 });
+    expect(merged.b).toEqual({ bar: 123 });
+    expect(merged.a).not.toBe(merged.b);
+  });
 });

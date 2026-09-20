@@ -150,4 +150,42 @@ describe('helpers::resolveConfig', () => {
       delete Object.prototype.encode;
     }
   });
+
+  it('should wrap circular params failure into an AxiosError carrying the config', () => {
+    const params = { a: 1 };
+    params.self = params;
+
+    let error;
+    try {
+      resolveConfig({ url: '/foo', params });
+    } catch (err) {
+      error = err;
+    }
+
+    assert.ok(error instanceof AxiosError);
+    assert.strictEqual(error.isAxiosError, true);
+    assert.strictEqual(error.code, AxiosError.ERR_BAD_REQUEST);
+    assert.ok(error.config);
+  });
+
+  it('should wrap a throwing paramsSerializer into an AxiosError carrying the config', () => {
+    let error;
+    try {
+      resolveConfig({
+        url: '/foo',
+        params: { a: 1 },
+        paramsSerializer: () => {
+          throw new Error('serializer exploded');
+        },
+      });
+    } catch (err) {
+      error = err;
+    }
+
+    assert.ok(error instanceof AxiosError);
+    assert.strictEqual(error.isAxiosError, true);
+    assert.strictEqual(error.code, AxiosError.ERR_BAD_REQUEST);
+    assert.ok(error.config);
+    assert.strictEqual(error.cause.message, 'serializer exploded');
+  });
 });
